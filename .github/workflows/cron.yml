@@ -1,0 +1,37 @@
+name: Cron
+
+# Roept beveiligde endpoints aan op schema. De sleutel staat als repo-secret.
+# Publiek repo => publieke logs: NOOIT response-inhoud loggen, alleen statuscode.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # mail-poll
+    - cron: "30 5 * * *"     # daily-check (05:30 UTC = 07:30 BE zomertijd)
+  workflow_dispatch: {}
+
+jobs:
+  mail-poll:
+    if: github.event.schedule != '30 5 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Poll
+        run: |
+          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 120 \
+            -H "x-key: ${{ secrets.FLEXTEAM_KEY }}" \
+            "https://flexteam-cockpit.pages.dev/api/mail-poll")
+          echo "HTTP $code"
+          [ "$code" = "200" ]
+
+  daily-check:
+    if: github.event.schedule == '30 5 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check
+        run: |
+          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 120 \
+            -H "x-key: ${{ secrets.FLEXTEAM_KEY }}" \
+            "https://flexteam-cockpit.pages.dev/api/daily-check")
+          echo "HTTP $code"
+          [ "$code" = "200" ]
